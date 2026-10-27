@@ -1,0 +1,26 @@
+name: Бэктест Сигналов от Claude
+on:
+  workflow_dispatch:
+    inputs:
+      months:
+        description: "Сколько месяцев истории"
+        default: "3"
+      coins:
+        description: "Монеты через запятую"
+        default: "BTC,ETH,SOL,XRP,BNB,DOGE,NEAR,ADA,AVAX,LINK,LTC,TRX,DOT,SUI,APT"
+concurrency:
+  group: backtest-claude
+  cancel-in-progress: true
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run backtest
+        env:
+          MONTHS: ${{ inputs.months }}
+          COINS: ${{ inputs.coins }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 backtest_claude.py
