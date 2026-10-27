@@ -1,0 +1,36 @@
+name: Сигналы от Claude
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Отправить тестовое сообщение"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: signals-claude
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run signals
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 signals_claude.py ${{ inputs.test && '--test' || '' }}
+      - name: Save state
+        run: |
+          if [ -n "$(git status --porcelain state.json)" ]; then
+            git config user.name "signals-bot"
+            git config user.email "signals-bot@users.noreply.github.com"
+            git add state.json
+            git commit -m "update state"
+            git pull --rebase -q || true
+            git push
+          fi
