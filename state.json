@@ -1,6 +1,7 @@
 {
  "cool": {
   "CHIP|long": 1793101071843,
+  "CT|short": 1793143391498,
   "MSTR|short": 1793111805730,
   "NEAR|long": 1793101071843,
   "PEPE|long": 1793114651804,
@@ -9,6 +10,22 @@
   "SPCX|short": 1793111805730,
   "UNI|long": 1793106058467
  },
+ "journal": [
+  {
+   "coin": "CT",
+   "entry": 0.1678,
+   "mode": "limit",
+   "resolved_ms": 0,
+   "rr": 2.049,
+   "score": 8,
+   "sent_ms": 1793143391498,
+   "side": "short",
+   "sl": 0.1712642857142857,
+   "status": "open",
+   "tp1": 0.1607
+  }
+ ],
+ "last_digest_ms": 0,
  "last_error_ms": 0,
  "log": [
   [
@@ -49,6 +66,11 @@
   [
    1793114651804,
    "PEPE|long",
+   8
+  ],
+  [
+   1793143391498,
+   "CT|short",
    8
   ]
  ]
