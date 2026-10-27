@@ -1,183 +1,503 @@
 #!/usr/bin/env python3
-"""Бэктест сигналов Сигналы от Claude на истории OKX (запускается в GitHub Actions).
+"""SMC-сканер (Smart Money Concepts) для крипто-перпетуалов.
 
-Берёт свечи 15m и 1H за N месяцев по списку монет, проходит по времени без заглядывания
-вперёд (сигнал на баре t использует только закрытые свечи до t), считает исход:
-TP1 или SL, с той же логикой, что и в боевом боте. Пишет отчёт и отправляет в Telegram.
-Только стандартная библиотека и модуль signals_claude из этого же репозитория.
+Ищет на 15-минутках классический сетап института:
+  снятие ликвидности (sweep) -> слом структуры (MSS) импульсной свечой
+  -> откат в FVG / Order Block / зону Фибоначчи (OTE 0.62-0.79).
+Направление фильтруется трендом 1H/4H и трендом BTC. Каждый сетап получает
+оценку (скоринг); сильнейшие уходят в Telegram: монета, направление, вход,
+TP, SL, причина, ориентир по времени. Бот ничего не торгует и не знает ваш баланс.
+
+Данные: публичные свечи Bybit -> OKX -> Binance (что доступно с сервера).
+Только стандартная библиотека Python.
+
+  python3 signals_claude.py           обычный проход (по расписанию)
+  python3 signals_claude.py --test    проверка связи + тестовое сообщение
+  python3 signals_claude.py --dry     без отправки, сигналы в консоль
 """
-import bisect
+import json
 import os
 import sys
+import threading
 import time
+import urllib.parse
 import urllib.request
-import json
-from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import signals_claude as sc  # noqa: E402
-
-M15 = 900_000
-H1 = 3_600_000
-OKX = "https://www.okx.com/api/v5/market/history-candles"
-DEFAULT_COINS = "BTC,ETH,SOL,XRP,BNB,DOGE,NEAR,ADA,AVAX,LINK,LTC,TRX,DOT,SUI,APT"
+_COINS_ENV = os.environ.get("COINS", "ALL").replace(" ", "").upper()
+FIXED_COINS = None if _COINS_ENV in ("", "ALL") else [c for c in _COINS_ENV.split(",") if c]
+STATE_FILE = os.environ.get("STATE_FILE", "state.json")
+HOUR_MS = 3_600_000
+DAY_MS = 24 * HOUR_MS
 
 
-def get_json(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 signals-backtest"})
-    with urllib.request.urlopen(req, timeout=20) as r:
+def _num(name, default):
+    v = os.environ.get(name)
+    try:
+        return float(v) if v not in (None, "") else float(default)
+    except ValueError:
+        return float(default)
+
+
+def load_params():
+    return {
+        "swing_k": int(_num("SWING_K", 3)),          # фрактал для уровней ликвидности
+        "sweep_window": int(_num("SWEEP_WINDOW", 10)),  # свечей между свипом и MSS
+        "fresh": int(_num("FRESH", 2)),              # MSS не старше fresh+1 свечей
+        "disp_atr": _num("DISP_ATR", 1.0),           # тело импульса, в ATR
+        "min_leg_atr": _num("MIN_LEG_ATR", 1.5),     # минимальная нога, в ATR
+        "sl_buf_atr": _num("SL_BUF_ATR", 0.2),       # запас SL за экстремумом свипа
+        "min_sl_pct": _num("MIN_SL_PCT", 0.3),       # SL не ближе, % (иначе шум)
+        "max_sl_pct": _num("MAX_SL_PCT", 3.5),       # SL не дальше, % (плечо 20x)
+        "sweep_pos_max": _num("SWEEP_POS_MAX", 0.5),  # снятый уровень: доля диапазона 24ч от края (1 = без фильтра)
+        "min_vol_ratio": _num("MIN_VOL_RATIO", 1.2),  # объём свипа/импульса к норме (0 = без фильтра)
+        "max_entry_atr": _num("MAX_ENTRY_ATR", 1.3),  # лимит не дальше N ATR от цены
+        "allow_counter": int(_num("ALLOW_COUNTER", 0)),  # 0 = не торговать против тренда 1H/4H
+        "entry_edge": int(_num("ENTRY_EDGE", 1)),      # 1 = вход у края зоны FVG/OB, а не в середине
+        "min_rr": _num("MIN_RR", 1.5),
+        "max_tp_pct": _num("MAX_TP_PCT", 6.0),
+        "min_score": int(_num("MIN_SCORE", 8)),      # обычный порог (из 12)
+        "floor_score": int(_num("FLOOR_SCORE", 6)),  # порог в «догоняющем» режиме
+        "target_per_day": int(_num("TARGET_PER_DAY", 5)),
+        "max_per_day": int(_num("MAX_PER_DAY", 10)),
+        "max_alerts": int(_num("MAX_ALERTS", 3)),    # за один проход
+        "cooldown_min": int(_num("COOLDOWN_MIN", 180)),
+        "limit_ttl_min": int(_num("LIMIT_TTL_MIN", 90)),
+        "min_turnover": _num("MIN_TURNOVER_USD", 20_000_000),
+        "max_coins": int(_num("MAX_COINS", 80)),
+        "workers": int(_num("WORKERS", 8)),
+        "tz_offset": _num("TZ_OFFSET", 3),           # для времени в сообщении
+        "lev_hint": int(_num("LEV_HINT", 20)),       # плечо для подсказки «SL/TP в % маржи»
+        "htf_gate": int(_num("HTF_GATE", 0)),        # 1 = нужен слом 1H в сторону сделки и вход в дисконте 1H
+        "no_score": int(_num("NO_SCORE", 0)),        # 1 = оценка отключена, решают только жёсткие условия
+    }
+
+
+# ======================= данные =======================
+IV_MS = {"15m": 900_000, "1h": HOUR_MS}
+IV_NAME = {"bybit": {"15m": "15", "1h": "60"},
+           "okx": {"15m": "15m", "1h": "1H"},
+           "binance": {"15m": "15m", "1h": "1h"}}
+SOURCES = [("bybit", "api.bybit.com"), ("bybit2", "api.bytick.com"),
+           ("okx", "www.okx.com"), ("binance", "data-api.binance.vision")]
+STABLE = {"USDC", "FDUSD", "TUSD", "DAI", "USDE", "USDP", "BUSD", "EUR", "USD1", "PYUSD", "USDD"}
+LIMITS = {"15m": 240, "1h": 300}
+
+
+def http_json(url, data=None, timeout=15):
+    req = urllib.request.Request(url, data=data, headers={"User-Agent": "Mozilla/5.0 signals-claude"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
 
 
-def okx_history(coin, bar, months):
-    """Закрытые свечи (ts, o, h, l, c, vol) за ~months месяцев, от старых к новым."""
-    days = months * 30
-    since = int(time.time() * 1000) - days * 24 * H1
-    rows, after = {}, ""
-    for _ in range(2000):
-        url = "%s?instId=%s-USDT-SWAP&bar=%s&limit=100" % (OKX, coin, bar)
-        if after:
-            url += "&after=%s" % after
-        j = get_json(url)
+def _kind(source):
+    return "bybit" if source.startswith("bybit") else source
+
+
+def _row(r):
+    return (int(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5]))
+
+
+def klines(source, host, coin, iv, limit, now_ms):
+    """Закрытые свечи (ts, o, h, l, c, vol) от старых к новым."""
+    kind, name = _kind(source), IV_NAME[_kind(source)][iv]
+    if kind == "bybit":
+        j = http_json("https://%s/v5/market/kline?category=linear&symbol=%sUSDT&interval=%s&limit=%d"
+                      % (host, coin, name, limit))
+        if j.get("retCode") != 0:
+            raise RuntimeError("bybit: %s" % j.get("retMsg"))
+        rows = [_row(r) for r in j["result"]["list"]]
+    elif kind == "okx":
+        j = http_json("https://%s/api/v5/market/candles?instId=%s-USDT-SWAP&bar=%s&limit=%d"
+                      % (host, coin, name, limit))
         if j.get("code") != "0":
             raise RuntimeError("okx: %s" % j.get("msg"))
-        batch = j.get("data") or []
-        if not batch:
-            break
-        for r in batch:
-            if r[8] == "1":                       # только подтверждённые свечи
-                ts = int(r[0])
-                rows[ts] = (ts, float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5]))
-        oldest = min(int(r[0]) for r in batch)
-        if oldest <= since or len(batch) < 100:
-            break
-        after = str(oldest)
-        time.sleep(0.12)
-    return [rows[k] for k in sorted(rows) if k >= since]
+        rows = [_row(r) for r in j["data"]]
+    else:
+        j = http_json("https://%s/api/v3/klines?symbol=%sUSDT&interval=%s&limit=%d"
+                      % (host, coin, name, limit))
+        rows = [_row(r) for r in j]
+    rows.sort()
+    ms = IV_MS[iv]
+    return [x for x in rows if x[0] + ms <= now_ms]
 
 
-def outcome(c, t, cand):
-    """Победа/поражение/не исполнен — та же логика, что в калибровке (пессимистично при касании обоих)."""
-    st, side = cand["st"], cand["side"]
-    e, sl, tp = st["entry"], st["sl"], st["tp1"]
-    start = t + 1
-    if st["mode"] == "limit":
-        filled = None
-        for j in range(start, min(start + 6, len(c))):
-            lo, hi = c[j][3], c[j][2]
-            if (side == "long" and lo <= e) or (side == "short" and hi >= e):
-                filled = j
-                break
-        if filled is None:
-            return "nofill"
-        start = filled
-    for j in range(start, min(start + 96, len(c))):
-        lo, hi = c[j][3], c[j][2]
-        hit_sl = lo <= sl if side == "long" else hi >= sl
-        hit_tp = hi >= tp if side == "long" else lo <= tp
-        if hit_sl:
-            return "loss"
-        if hit_tp:
-            return "win"
-    return "open"
+_gate = threading.Lock()
+_last_call = {}
+MIN_GAP = {"www.okx.com": 0.07}
 
 
-def btc_bias_at(btc1h_ts, btc1h, now_ms, P):
-    k = bisect.bisect_right(btc1h_ts, now_ms - H1 + 1)   # закрытые к моменту now
-    win = btc1h[max(0, k - 300):k]
-    if len(win) < 60:
-        return None
-    return sc.htf_bias(win, sc.aggregate_4h(win))["dir"]
+def throttle(host):
+    gap = MIN_GAP.get(host, 0)
+    if not gap:
+        return
+    with _gate:
+        wait = _last_call.get(host, 0) + gap - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        _last_call[host] = time.time()
 
 
-def backtest_coin(coin, c15, c1h, P, btc=None):
-    """Возвращает список (score, side, mode, rr, исход)."""
-    ts1 = [x[0] for x in c1h]
-    ts15 = [x[0] for x in c15]
-    out, cool = [], {}
-    cooldown_bars = max(1, P["cooldown_min"] // 15)
-    for t in range(240, len(c15) - 6):
-        now = c15[t][0] + M15            # момент закрытия бара t
-        win15 = c15[t - 239:t + 1]
-        k = bisect.bisect_right(ts1, now - H1)  # 1H, закрытые до now
-        win1 = c1h[max(0, k - 300):k]
-        if len(win15) < 240 or len(win1) < 60:
+def _good_base(b, kind):
+    if not b or b in STABLE:
+        return False
+    if kind == "binance" and b.endswith(("UP", "DOWN", "BULL", "BEAR")):
+        return False
+    return True
+
+
+def get_universe(min_turnover, max_coins):
+    """Ликвидные USDT-рынки. -> (source, [монеты]) или (None, [])."""
+    for source, host in SOURCES:
+        kind = _kind(source)
+        try:
+            throttle(host)
+            if kind == "bybit":
+                j = http_json("https://%s/v5/market/tickers?category=linear" % host)
+                if j.get("retCode") != 0:
+                    raise RuntimeError(j.get("retMsg"))
+                rows = [(float(t.get("turnover24h") or 0), t["symbol"][:-4])
+                        for t in j["result"]["list"]
+                        if t["symbol"].endswith("USDT") and "-" not in t["symbol"]]
+            elif kind == "okx":
+                j = http_json("https://%s/api/v5/market/tickers?instType=SWAP" % host)
+                if j.get("code") != "0":
+                    raise RuntimeError(j.get("msg"))
+                rows = [(float(t.get("volCcy24h") or 0) * float(t.get("last") or 0),
+                         t["instId"].split("-")[0])
+                        for t in j["data"] if t["instId"].endswith("-USDT-SWAP")]
+            else:
+                j = http_json("https://%s/api/v3/ticker/24hr" % host)
+                rows = [(float(t.get("quoteVolume") or 0), t["symbol"][:-4])
+                        for t in j if t["symbol"].endswith("USDT")]
+            rows = sorted((r for r in rows if r[0] >= min_turnover and _good_base(r[1], kind)),
+                          reverse=True)
+            coins = [c for _, c in rows[:max_coins]]
+            if coins:
+                return source, coins
+        except Exception:
             continue
-        btc_dir = btc_bias_at(*btc, now, P) if btc else None
-        for cand in sc.detect(win15, win1, P, btc_dir, coin == "BTC"):
-            key = cand["side"]
-            if t - cool.get(key, -10**9) < cooldown_bars:
-                continue
-            if cand["score"] < P["min_score"]:
-                continue
-            cool[key] = t
-            res = outcome(c15, t, cand)
-            out.append((cand["score"], cand["side"], cand["st"]["mode"], cand["st"]["rr"], res))
+    return None, []
+
+
+def get_candles(coin, now_ms, sources=None):
+    """-> (source, c15, c1h, errors); source None, если нигде не вышло."""
+    errors = []
+    for source, host in (sources or SOURCES):
+        for _ in (1, 2):
+            try:
+                throttle(host)
+                c15 = klines(source, host, coin, "15m", LIMITS["15m"], now_ms)
+                throttle(host)
+                c1h = klines(source, host, coin, "1h", LIMITS["1h"], now_ms)
+                return source, c15, c1h, errors
+            except Exception as e:
+                errors.append("%s: %s" % (source, str(e)[:80]))
+                time.sleep(0.4)
+    return None, [], [], errors
+
+
+# ======================= индикаторы =======================
+def ema(values, n):
+    k = 2.0 / (n + 1)
+    e = sum(values[:n]) / n
+    for v in values[n:]:
+        e = v * k + e * (1 - k)
+    return e
+
+
+def atr(c, n=14):
+    if len(c) <= n:
+        return 0.0
+    trs = []
+    for i in range(len(c) - n, len(c)):
+        h, l, pc = c[i][2], c[i][3], c[i - 1][4]
+        trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+    return sum(trs) / n
+
+
+def swings(c, k):
+    """Подтверждённые фрактальные максимумы и минимумы: ([(i, цена)], [(i, цена)])."""
+    highs, lows = [], []
+    for i in range(k, len(c) - k):
+        h, l = c[i][2], c[i][3]
+        if all(h > c[j][2] for j in range(i - k, i)) and all(h >= c[j][2] for j in range(i + 1, i + k + 1)):
+            highs.append((i, h))
+        if all(l < c[j][3] for j in range(i - k, i)) and all(l <= c[j][3] for j in range(i + 1, i + k + 1)):
+            lows.append((i, l))
+    return highs, lows
+
+
+def mirror(c):
+    """Зеркало цены (p -> -p): шорт превращается в лонг, одна логика на оба направления."""
+    return [(t, -o, -l, -h, -cl, v) for (t, o, h, l, cl, v) in c]
+
+
+def aggregate_4h(c1h):
+    """Собирает 4H из закрытых 1H; неполные группы отбрасываются."""
+    out, grp = [], []
+
+    def flush():
+        if len(grp) == 4:
+            out.append((grp[0][0], grp[0][1], max(x[2] for x in grp),
+                        min(x[3] for x in grp), grp[-1][4], sum(x[5] for x in grp)))
+    for x in c1h:
+        if grp and grp[0][0] // (4 * HOUR_MS) != x[0] // (4 * HOUR_MS):
+            flush()
+            grp = []
+        grp.append(x)
+    flush()
     return out
 
 
-def summarize(rows):
-    """Винрейт, средний R и разбивка по оценке. Средний R: победа +RR, поражение -1."""
-    closed = [r for r in rows if r[4] in ("win", "loss")]
-    wins = sum(1 for r in closed if r[4] == "win")
-    losses = len(closed) - wins
-    avg_r = (sum(r[3] for r in closed if r[4] == "win") - losses) / len(closed) if closed else 0.0
-    lines = ["Сделок всего: %d (не исполнено лимитом: %d, открыто: %d)"
-             % (len(rows), sum(1 for r in rows if r[4] == "nofill"), sum(1 for r in rows if r[4] == "open"))]
-    if closed:
-        lines.append("Закрыто: %d · побед %d · поражений %d · винрейт %.1f %%"
-                     % (len(closed), wins, losses, 100.0 * wins / len(closed)))
-        lines.append("Средний результат на сделку: %+.2f R" % avg_r)
-        by = defaultdict(lambda: [0, 0])
-        for r in closed:
-            by[r[0]][0] += 1
-            by[r[0]][1] += r[4] == "win"
-        for sc_v in sorted(by):
-            n, w = by[sc_v]
-            lines.append("  оценка %d: %d сделок, винрейт %.0f %%" % (sc_v, n, 100.0 * w / n))
-    else:
-        lines.append("Закрытых сделок нет — нечего считать.")
-    return "\n".join(lines)
+# ======================= тренд (bias) =======================
+def htf_bias(c1h, c4h):
+    """Тренд по 1H/4H. -> {"dir": bull|bear|neutral, "notes": [(dir, текст)]}."""
+    notes, bull, bear = [], 0, 0
+    hi, lo = swings(c1h, 3)
+    if len(hi) >= 2 and len(lo) >= 2:
+        if hi[-1][1] > hi[-2][1] and lo[-1][1] > lo[-2][1]:
+            bull += 1
+            notes.append(("bull", "структура 1H: HH + HL"))
+        elif hi[-1][1] < hi[-2][1] and lo[-1][1] < lo[-2][1]:
+            bear += 1
+            notes.append(("bear", "структура 1H: LH + LL"))
+    closes = [x[4] for x in c1h]
+    if len(closes) >= 60:
+        if closes[-1] > ema(closes, 50):
+            bull += 1
+            notes.append(("bull", "цена выше EMA50 (1H)"))
+        else:
+            bear += 1
+            notes.append(("bear", "цена ниже EMA50 (1H)"))
+    closes4 = [x[4] for x in c4h]
+    if len(closes4) >= 55:
+        if ema(closes4, 21) > ema(closes4, 50):
+            bull += 1
+            notes.append(("bull", "EMA21 > EMA50 (4H)"))
+        else:
+            bear += 1
+            notes.append(("bear", "EMA21 < EMA50 (4H)"))
+    d = "bull" if bull >= 2 else "bear" if bear >= 2 else "neutral"
+    return {"dir": d, "notes": notes}
 
 
-def main(argv):
-    months = int(os.environ.get("MONTHS", "3"))
-    coins = [c.strip().upper() for c in os.environ.get("COINS", DEFAULT_COINS).split(",") if c.strip()]
-    P = sc.load_params()
-    P = dict(P, allow_counter=0, min_score=int(os.environ.get("MIN_SCORE", P["min_score"])))
-    all_rows, failed = [], []
-    btc = None
-    try:
-        b15 = okx_history("BTC", "15m", months)
-        b1 = okx_history("BTC", "1H", months)
-        btc = ([x[0] for x in b1], b1)
-    except Exception as e:
-        failed.append("BTC (фильтр тренда): %s" % str(e)[:80])
-    for coin in coins:
-        try:
-            c15 = okx_history(coin, "15m", months)
-            c1h = okx_history(coin, "1H", months)
-            if len(c15) < 300 or len(c1h) < 100:
-                failed.append("%s: мало истории (%d/%d свечей)" % (coin, len(c15), len(c1h)))
+def htf_break(c1h, lookback=6):
+    """Слом 1H вверх: за последние lookback закрытых 1H свечей закрытие выше последнего подтверждённого
+    максимума 1H. Для шорта вызывается на зеркальных данных, поэтому логика одна."""
+    if len(c1h) < 60:
+        return False
+    hi, _ = swings(c1h, 3)
+    confirmed = [(i, v) for i, v in hi if i < len(c1h) - 3]
+    if not confirmed:
+        return False
+    level = confirmed[-1][1]
+    return any(x[4] > level for x in c1h[-lookback:])
+
+
+def htf_discount(c1h, entry, bars=40):
+    """Вход в нижней половине диапазона 1H за последние bars свечей (для лонга; для шорта — на зеркале)."""
+    seg = c1h[-bars:]
+    if len(seg) < 10:
+        return False
+    hi = max(x[2] for x in seg)
+    lo = min(x[3] for x in seg)
+    return entry <= (hi + lo) / 2.0
+
+
+# ======================= сетап (всегда «в лонг»; шорт — через зеркало) =======================
+def find_long_setup(c, c1h, P):
+    """Sweep -> MSS -> откат. Возвращает словарь сетапа или None."""
+    n, k = len(c), P["swing_k"]
+    if n < 100:
+        return None
+    a = atr(c, 14)
+    if a <= 0:
+        return None
+    sw_hi, sw_lo = swings(c, k)
+    mn_hi, _ = swings(c, 2)
+    p0 = c[-1][4]
+    lo96 = min(x[3] for x in c[-96:])
+    hi96 = max(x[2] for x in c[-96:])
+    eq = (lo96 + hi96) / 2.0
+    hi1h = swings(c1h, 3)[0] if c1h else []
+
+    for m in range(n - 1, n - 2 - P["fresh"], -1):
+        body = c[m][4] - c[m][1]
+        if body < P["disp_atr"] * a:
+            continue
+        for s in range(m - 1, max(m - P["sweep_window"], 25) - 1, -1):
+            swept = [(i, v) for i, v in sw_lo if i + k < s and i >= s - 100 and c[s][3] < v < c[s][4]]
+            if not swept:
                 continue
-            all_rows += backtest_coin(coin, c15, c1h, P, btc if coin != "BTC" else None)
-            print("%s: %d свечей 15m, %d сетапов накоплено" % (coin, len(c15), len(all_rows)), flush=True)
-        except Exception as e:
-            failed.append("%s: %s" % (coin, str(e)[:80]))
-        time.sleep(0.2)
-    report = ("📊 Бэктест «Сигналы от Claude» на OKX\n"
-              "Период: ~%d мес. · монет: %d · строгий порог %d/12\n"
-              % (months, len(coins), P["min_score"])) + summarize(all_rows)
-    if failed:
-        report += "\nНе загружены: " + "; ".join(failed[:10])
-    report += "\nВажно: история в прошлом не гарантирует результат. Не финансовый совет."
-    print(report)
-    token = os.environ.get("TELEGRAM_TOKEN", "").strip()
-    chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-    if token and chat:
-        sc.tg_sender(token, chat)(report)
-    return 0
+            L = swept[-1][1]
+            if hi96 > lo96 and (L - lo96) / (hi96 - lo96) > P["sweep_pos_max"]:
+                continue                      # ликвидность не у края диапазона
+            prior_hi = [(i, v) for i, v in mn_hi if i + 2 < s and i >= s - 40]
+            if not prior_hi:
+                continue
+            H = prior_hi[-1][1]
+            if c[s][4] >= H or c[m][4] <= H:
+                continue
+            if any(c[j][4] > H for j in range(s + 1, m)):
+                continue                      # слом структуры уже был раньше
+            S = min(x[3] for x in c[s:])
+            I = max(x[2] for x in c[s:])
+            R = I - S
+            if R < P["min_leg_atr"] * a or p0 <= S:
+                continue
+            f0 = (I - p0) / R
+            if f0 > 0.9 or f0 < -0.3:
+                continue                      # цена почти вернулась к низу / убежала вверх
+            base = [x[5] for x in c[max(0, s - 20):s]]
+            avg_v = sum(base) / len(base) if base else 0
+            vr = max(c[s][5], c[m][5]) / avg_v if avg_v > 0 else 0.0
+            if vr < P["min_vol_ratio"]:
+                continue
+
+            fvg = None
+            for i in range(s + 1, n - 1):
+                lo_g, hi_g = c[i - 1][2], c[i + 1][3]
+                if hi_g > lo_g and S <= lo_g and hi_g <= I:
+                    fvg = (lo_g, hi_g)
+            ob = None
+            for j in range(m - 1, s - 1, -1):
+                if c[j][4] < c[j][1]:
+                    ob = (c[j][3], c[j][2])
+                    break
+
+            band_hi, band_lo = I - 0.382 * R, I - 0.79 * R
+            entry, src = None, "Fib"
+            for name, z in (("OB", ob), ("FVG", fvg)):
+                if z and band_lo <= (z[0] + z[1]) / 2.0 <= band_hi:
+                    entry, src = (z[1] if P["entry_edge"] else (z[0] + z[1]) / 2.0), name
+                    break
+            if entry is None:
+                entry = I - 0.618 * R
+            mode = "limit"
+            if p0 <= entry:
+                entry, mode = p0, "market"
+            elif p0 - entry > P["max_entry_atr"] * a:
+                continue                      # лимит слишком далеко — вряд ли исполнится
+
+            if P.get("htf_gate"):
+                if not htf_break(c1h) or not htf_discount(c1h, entry):
+                    continue                  # старший таймфрейм не подтверждает сделку
+
+            sl = S - P["sl_buf_atr"] * a
+            risk = entry - sl
+            risk_pct = risk / abs(entry) * 100.0    # abs: в зеркале цена отрицательная
+            if not (P["min_sl_pct"] <= risk_pct <= P["max_sl_pct"]):
+                continue
+
+            cap = entry + abs(entry) * P["max_tp_pct"] / 100.0
+            levels = sorted({I} | {v for _, v in sw_hi if v > entry} | {v for _, v in hi1h if v > entry})
+            tp1 = None
+            for lv in levels:
+                if lv <= cap and (lv - entry) / risk >= P["min_rr"]:
+                    tp1 = lv
+                    break
+            if tp1 is None:
+                ext = S + 1.272 * R
+                if ext <= cap and (ext - entry) / risk >= P["min_rr"]:
+                    tp1 = ext
+                else:
+                    continue
+            if p0 >= tp1:
+                continue
+            tp2 = max(S + 1.618 * R, tp1 + risk)
+
+            minutes = max(30.0, (tp1 - entry) / (0.5 * a) * 15.0)
+            return {"s": s, "m": m, "L": L, "H": H, "S": S, "I": I, "R": R,
+                    "entry": entry, "mode": mode, "src": src, "sl": sl, "tp1": tp1, "tp2": tp2,
+                    "risk_pct": risk_pct, "rr": (tp1 - entry) / risk, "fvg": fvg, "ob": ob,
+                    "f_e": (I - entry) / R, "disp": body / a, "vol_ratio": vr,
+                    "disc": entry < eq, "atr": a, "minutes": minutes, "price": p0,
+                    "candle": c[m][0]}
+    return None
 
 
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+def unmirror(st):
+    out = dict(st)
+    for key in ("L", "H", "S", "I", "entry", "sl", "tp1", "tp2", "price"):
+        out[key] = -st[key]
+    for key in ("fvg", "ob"):
+        if st[key]:
+            out[key] = (-st[key][1], -st[key][0])
+    return out
+
+
+# ======================= оценка =======================
+WORDS = {
+    "long": {"name": "LONG", "emoji": "🟢", "trend": "вверх", "swept": "минимум", "side": "выше",
+             "zone": "дисконт", "dir": "bull"},
+    "short": {"name": "SHORT", "emoji": "🔴", "trend": "вниз", "swept": "максимум", "side": "ниже",
+              "zone": "премиум", "dir": "bear"},
+}
+
+
+def score_setup(st, side, bias, btc, is_btc):
+    """Оценка из 12 и список причин."""
+    w = WORDS[side]
+    mine = w["dir"]
+    opp = "bear" if mine == "bull" else "bull"
+    pts, why = 4, []   # 2 за свип + 2 за MSS — обязательные условия сетапа
+    why.append("Снятие ликвидности: свеча сняла %s %s и закрылась %s уровня (ложный пробой)"
+               % (w["swept"], fmt(st["L"]), w["side"]))
+    why.append("Слом структуры (MSS): закрытие %s %s импульсной свечой ×%.1f ATR"
+               % (w["side"], fmt(st["H"]), st["disp"]))
+    if bias["dir"] == mine:
+        pts += 2
+        txt = "; ".join(t for d, t in bias["notes"] if d == mine)
+        why.append("Тренд 1H/4H %s: %s" % (w["trend"], txt))
+    elif bias["dir"] == "neutral":
+        pts += 1
+        why.append("Тренд 1H/4H нейтральный — вход от ликвидности")
+    else:
+        why.append("⚠ Против тренда 1H/4H — повышенный риск")
+    if st["fvg"]:
+        pts += 1
+        why.append("FVG (имбаланс) %s–%s" % (fmt(st["fvg"][0]), fmt(st["fvg"][1])))
+    if st["ob"]:
+        pts += 1
+        why.append("Order Block %s–%s" % (fmt(st["ob"][0]), fmt(st["ob"][1])))
+    if 0.55 <= st["f_e"] <= 0.80:
+        pts += 1
+        why.append("Вход на %.0f %% отката ноги %s→%s (зона Фибоначчи OTE 62–79 %%)"
+                   % (st["f_e"] * 100, fmt(st["S"]), fmt(st["I"])))
+    else:
+        why.append("Вход на %.0f %% отката ноги %s→%s" % (st["f_e"] * 100, fmt(st["S"]), fmt(st["I"])))
+    if st["vol_ratio"] >= 2.0:
+        pts += 1
+        why.append("Сильный объём ×%.1f от нормы на свипе/импульсе" % st["vol_ratio"])
+    if st["disc"]:
+        pts += 1
+        why.append("Вход в зоне «%s» диапазона 24ч" % w["zone"])
+    if not is_btc and btc in ("bull", "bear"):
+        if btc == mine:
+            pts += 1
+            why.append("Тренд BTC 1H совпадает")
+        elif btc == opp:
+            pts -= 1
+            why.append("⚠ BTC идёт против сигнала")
+    return pts, why
+
+
+# ======================= сообщение =======================
+def fmt(p):
+    a = abs(p)
+    if a >= 1000:
+        return "{:,.1f}".format(p).replace(",", " ")
+    if a >= 100:
+        return "%.2f" % p
+    if a >= 1:
+        return "%.3f" % p
+    if a >= 0.1:
+        return "%.4f" % p
+    return "%.6f" % p
+
+
+def build_message(coin, cand, now_ms, P, source):
+    st, side, score, why = cand["st"], cand["side"], cand["score"], cand["why"]
+    w = WORDS[side]
+    e, sl, tp1, tp2 = st["en
