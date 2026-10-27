@@ -68,7 +68,7 @@ def load_params():
         "workers": int(_num("WORKERS", 8)),
         "tz_offset": _num("TZ_OFFSET", 3),           # для времени в сообщении
         "lev_hint": int(_num("LEV_HINT", 20)),       # плечо для подсказки «SL/TP в % маржи»
-        "htf_gate": int(_num("HTF_GATE", 0)),        # 1 = нужен слом 1H в сторону сделки и вход в дисконте 1H
+        "htf_gate": int(_num("HTF_GATE", 1)),        # 1 = нужен слом 1H в сторону сделки и вход в дисконте 1H
         "no_score": int(_num("NO_SCORE", 0)),        # 1 = оценка отключена, решают только жёсткие условия
     }
 
