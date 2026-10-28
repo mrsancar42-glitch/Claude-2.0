@@ -3,6 +3,7 @@
   "CHIP|long": 1793101071843,
   "CT|long": 1793200694434,
   "CT|short": 1793143391498,
+  "LIT|long": 1793219353757,
   "MSTR|long": 1793214621480,
   "MSTR|short": 1793150899024,
   "NEAR|long": 1793101071843,
@@ -13,6 +14,7 @@
   "SPCX|short": 1793111805730,
   "SUI|long": 1793214621480,
   "UNI|long": 1793106058467,
+  "XAG|long": 1793219353757,
   "ZEC|long": 1793211483989
  },
  "journal": [
@@ -72,26 +74,26 @@
    "coin": "ZEC",
    "entry": 1280.6,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793219353757,
    "rr": 1.599,
    "score": 9,
    "sent_ms": 1793211483989,
    "side": "long",
    "sl": 1264.3694285714284,
-   "status": "open",
+   "status": "win",
    "tp1": 1306.55
   },
   {
    "coin": "MSTR",
    "entry": 140.95,
    "mode": "market",
-   "resolved_ms": 0,
+   "resolved_ms": 1793219353757,
    "rr": 1.864,
    "score": 10,
    "sent_ms": 1793214621480,
    "side": "long",
    "sl": 139.17457142857143,
-   "status": "open",
+   "status": "win",
    "tp1": 144.26
   },
   {
@@ -106,6 +108,32 @@
    "sl": 0.9216342857142857,
    "status": "open",
    "tp1": 0.9523
+  },
+  {
+   "coin": "XAG",
+   "entry": 53.98,
+   "mode": "limit",
+   "resolved_ms": 0,
+   "rr": 5.229,
+   "score": 10,
+   "sent_ms": 1793219353757,
+   "side": "long",
+   "sl": 53.37571428571429,
+   "status": "open",
+   "tp1": 57.14
+  },
+  {
+   "coin": "LIT",
+   "entry": 2.9912,
+   "mode": "limit",
+   "resolved_ms": 0,
+   "rr": 1.502,
+   "score": 10,
+   "sent_ms": 1793219353757,
+   "side": "long",
+   "sl": 2.929932857142857,
+   "status": "open",
+   "tp1": 3.0832
   }
  ],
  "last_digest_ms": 1793150899024,
@@ -185,6 +213,16 @@
    1793214621480,
    "SUI|long",
    8
+  ],
+  [
+   1793219353757,
+   "XAG|long",
+   10
+  ],
+  [
+   1793219353757,
+   "LIT|long",
+   10
   ]
  ]
 }
