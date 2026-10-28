@@ -126,13 +126,13 @@
    "coin": "LIT",
    "entry": 2.9912,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793230684865,
    "rr": 1.502,
    "score": 10,
    "sent_ms": 1793219353757,
    "side": "long",
    "sl": 2.929932857142857,
-   "status": "open",
+   "status": "loss",
    "tp1": 3.0832
   }
  ],
