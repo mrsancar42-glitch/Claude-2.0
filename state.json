@@ -42,13 +42,13 @@
    "coin": "NEAR",
    "entry": 4.700002,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793194284566,
    "rr": 1.704,
    "score": 9,
    "sent_ms": 1793188517654,
    "side": "short",
    "sl": 4.739914285714286,
-   "status": "open",
+   "status": "nofill",
    "tp1": 4.632
   }
  ],
