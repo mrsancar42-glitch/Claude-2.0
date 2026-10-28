@@ -100,13 +100,13 @@
    "coin": "SUI",
    "entry": 0.9339,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793221919274,
    "rr": 1.5,
    "score": 8,
    "sent_ms": 1793214621480,
    "side": "long",
    "sl": 0.9216342857142857,
-   "status": "open",
+   "status": "nofill",
    "tp1": 0.9523
   },
   {
