@@ -56,13 +56,13 @@
    "coin": "CT",
    "entry": 0.1602448,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793206482678,
    "rr": 3.226,
    "score": 7,
    "sent_ms": 1793200694434,
    "side": "long",
    "sl": 0.15737571428571429,
-   "status": "open",
+   "status": "nofill",
    "tp1": 0.1695
   }
  ],
