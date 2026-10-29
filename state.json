@@ -167,13 +167,13 @@
    "coin": "AAOI",
    "entry": 79.60278,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793269988801,
    "rr": 1.584,
    "score": 9,
    "sent_ms": 1793264714771,
    "side": "long",
    "sl": 78.992,
-   "status": "open",
+   "status": "win",
    "tp1": 80.57
   }
  ],
