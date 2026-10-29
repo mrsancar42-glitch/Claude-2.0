@@ -190,13 +190,13 @@
    "coin": "AVAX",
    "entry": 8.785016,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793312436664,
    "rr": 1.835,
    "score": 8,
    "sent_ms": 1793305094015,
    "side": "short",
    "sl": 8.877142857142857,
-   "status": "open",
+   "status": "nofill",
    "tp1": 8.616
   },
   {
