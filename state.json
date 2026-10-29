@@ -7,8 +7,9 @@
   "CT|short": 1793143391498,
   "LIT|long": 1793219353757,
   "MSTR|long": 1793214621480,
-  "MSTR|short": 1793150899024,
+  "MSTR|short": 1793307658292,
   "NEAR|short": 1793188517654,
+  "OKB|short": 1793307658292,
   "PEPE|long": 1793252183782,
   "SUI|long": 1793214621480,
   "TRUMP|short": 1793296935678,
@@ -197,6 +198,32 @@
    "sl": 8.877142857142857,
    "status": "open",
    "tp1": 8.616
+  },
+  {
+   "coin": "MSTR",
+   "entry": 138.97,
+   "mode": "limit",
+   "resolved_ms": 0,
+   "rr": 1.655,
+   "score": 10,
+   "sent_ms": 1793307658292,
+   "side": "short",
+   "sl": 141.2777142857143,
+   "status": "open",
+   "tp1": 135.15
+  },
+  {
+   "coin": "OKB",
+   "entry": 111.27,
+   "mode": "limit",
+   "resolved_ms": 0,
+   "rr": 1.503,
+   "score": 10,
+   "sent_ms": 1793307658292,
+   "side": "short",
+   "sl": 113.85757142857143,
+   "status": "open",
+   "tp1": 107.38
   }
  ],
  "last_digest_ms": 1793238616303,
@@ -271,6 +298,16 @@
    1793305094015,
    "AVAX|short",
    8
+  ],
+  [
+   1793307658292,
+   "MSTR|short",
+   10
+  ],
+  [
+   1793307658292,
+   "OKB|short",
+   10
   ]
  ]
 }
