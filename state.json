@@ -113,13 +113,13 @@
    "coin": "XAG",
    "entry": 53.98,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793244065568,
    "rr": 5.229,
    "score": 10,
    "sent_ms": 1793219353757,
    "side": "long",
    "sl": 53.37571428571429,
-   "status": "open",
+   "status": "loss",
    "tp1": 57.14
   },
   {
