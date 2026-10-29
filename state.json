@@ -175,13 +175,13 @@
    "coin": "TRUMP",
    "entry": 1.69072,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793302439881,
    "rr": 1.521,
    "score": 9,
    "sent_ms": 1793296935678,
    "side": "short",
    "sl": 1.708942857142857,
-   "status": "open",
+   "status": "nofill",
    "tp1": 1.663
   }
  ],
