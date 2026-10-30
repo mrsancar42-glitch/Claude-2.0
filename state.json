@@ -215,13 +215,13 @@
    "coin": "OKB",
    "entry": 111.27,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793322917122,
    "rr": 1.503,
    "score": 10,
    "sent_ms": 1793307658292,
    "side": "short",
    "sl": 113.85757142857143,
-   "status": "open",
+   "status": "win",
    "tp1": 107.38
   }
  ],
