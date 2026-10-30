@@ -3,7 +3,6 @@
   "AAOI|long": 1793264714771,
   "AVAX|short": 1793305094015,
   "BEAT|long": 1793249903333,
-  "CT|long": 1793200694434,
   "DOOD|long": 1793326063147,
   "GOOGL|short": 1793371235606,
   "HBAR|short": 1793371235606,
@@ -284,24 +283,19 @@
    "coin": "GOOGL",
    "entry": 280.96,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793374342384,
    "rr": 2.029,
    "score": 10,
    "sent_ms": 1793371235606,
    "side": "short",
    "sl": 283.29114285714286,
-   "status": "open",
+   "status": "loss",
    "tp1": 276.23
   }
  ],
  "last_digest_ms": 1793326063147,
  "last_error_ms": 0,
  "log": [
-  [
-   1793200694434,
-   "CT|long",
-   7
-  ],
   [
    1793211483989,
    "ZEC|long",
