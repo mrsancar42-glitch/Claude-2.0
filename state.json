@@ -202,13 +202,13 @@
    "coin": "MSTR",
    "entry": 138.97,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793319041710,
    "rr": 1.655,
    "score": 10,
    "sent_ms": 1793307658292,
    "side": "short",
    "sl": 141.2777142857143,
-   "status": "open",
+   "status": "win",
    "tp1": 135.15
   },
   {
