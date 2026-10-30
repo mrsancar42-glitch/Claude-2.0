@@ -244,13 +244,13 @@
    "coin": "SOL",
    "entry": 97.55,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793354782685,
    "rr": 3.516,
    "score": 9,
    "sent_ms": 1793348871953,
    "side": "short",
    "sl": 98.32357142857143,
-   "status": "open",
+   "status": "nofill",
    "tp1": 94.83
   },
   {
