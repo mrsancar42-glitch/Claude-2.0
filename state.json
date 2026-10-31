@@ -2,7 +2,6 @@
  "cool": {
   "AAOI|long": 1793264714771,
   "AVAX|short": 1793305094015,
-  "BEAT|long": 1793249903333,
   "DOOD|long": 1793326063147,
   "GOOGL|short": 1793371235606,
   "HBAR|short": 1793371235606,
@@ -291,11 +290,6 @@
  "last_digest_ms": 1793415824309,
  "last_error_ms": 0,
  "log": [
-  [
-   1793249903333,
-   "BEAT|long",
-   9
-  ],
   [
    1793252183782,
    "PEPE|long",
