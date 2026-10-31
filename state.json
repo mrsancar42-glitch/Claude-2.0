@@ -9,7 +9,8 @@
   "MSTR|short": 1793307658292,
   "OKB|short": 1793307658292,
   "SOL|short": 1793348871953,
-  "TRUMP|short": 1793296935678
+  "TRUMP|short": 1793296935678,
+  "WET|short": 1793447298728
  },
  "journal": [
   {
@@ -289,14 +290,27 @@
    "coin": "CAP",
    "entry": 0.08744072000000001,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793447298728,
    "rr": 3.067,
    "score": 7,
    "sent_ms": 1793438816212,
    "side": "short",
    "sl": 0.08839642857142858,
-   "status": "open",
+   "status": "win",
    "tp1": 0.08451
+  },
+  {
+   "coin": "WET",
+   "entry": 0.06279,
+   "mode": "market",
+   "resolved_ms": 0,
+   "rr": 3.09,
+   "score": 8,
+   "sent_ms": 1793447298728,
+   "side": "short",
+   "sl": 0.06359271428571428,
+   "status": "open",
+   "tp1": 0.06031
   }
  ],
  "last_digest_ms": 1793415824309,
@@ -351,6 +365,11 @@
    1793438816212,
    "CAP|short",
    7
+  ],
+  [
+   1793447298728,
+   "WET|short",
+   8
   ]
  ],
  "pause_notified_ms": 1793415824309
