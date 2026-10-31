@@ -317,13 +317,13 @@
    "coin": "APR",
    "entry": 0.05416,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793468068595,
    "rr": 1.539,
    "score": 8,
    "sent_ms": 1793462301010,
    "side": "long",
    "sl": 0.05301,
-   "status": "open",
+   "status": "nofill",
    "tp1": 0.05593
   }
  ],
