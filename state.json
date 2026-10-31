@@ -7,13 +7,11 @@
   "GOOGL|short": 1793371235606,
   "HBAR|short": 1793371235606,
   "INIT|long": 1793351837957,
-  "LIT|long": 1793219353757,
   "MSTR|short": 1793307658292,
   "OKB|short": 1793307658292,
   "PEPE|long": 1793252183782,
   "SOL|short": 1793348871953,
-  "TRUMP|short": 1793296935678,
-  "XAG|long": 1793219353757
+  "TRUMP|short": 1793296935678
  },
  "journal": [
   {
@@ -267,13 +265,13 @@
    "coin": "HBAR",
    "entry": 0.0716,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793415824309,
    "rr": 3.109,
    "score": 11,
    "sent_ms": 1793371235606,
    "side": "short",
    "sl": 0.07242671428571429,
-   "status": "open",
+   "status": "loss",
    "tp1": 0.06903
   },
   {
@@ -290,19 +288,9 @@
    "tp1": 276.23
   }
  ],
- "last_digest_ms": 1793326063147,
+ "last_digest_ms": 1793415824309,
  "last_error_ms": 0,
  "log": [
-  [
-   1793219353757,
-   "XAG|long",
-   10
-  ],
-  [
-   1793219353757,
-   "LIT|long",
-   10
-  ],
   [
    1793249903333,
    "BEAT|long",
@@ -363,5 +351,6 @@
    "GOOGL|short",
    10
   ]
- ]
+ ],
+ "pause_notified_ms": 1793415824309
 }
