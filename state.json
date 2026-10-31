@@ -8,7 +8,6 @@
   "INIT|long": 1793351837957,
   "MSTR|short": 1793307658292,
   "OKB|short": 1793307658292,
-  "PEPE|long": 1793252183782,
   "SOL|short": 1793348871953,
   "TRUMP|short": 1793296935678
  },
@@ -290,11 +289,6 @@
  "last_digest_ms": 1793415824309,
  "last_error_ms": 0,
  "log": [
-  [
-   1793252183782,
-   "PEPE|long",
-   9
-  ],
   [
    1793264714771,
    "AAOI|long",
