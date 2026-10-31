@@ -303,13 +303,13 @@
    "coin": "WET",
    "entry": 0.06279,
    "mode": "market",
-   "resolved_ms": 0,
+   "resolved_ms": 1793449148854,
    "rr": 3.09,
    "score": 8,
    "sent_ms": 1793447298728,
    "side": "short",
    "sl": 0.06359271428571428,
-   "status": "open",
+   "status": "loss",
    "tp1": 0.06031
   }
  ],
