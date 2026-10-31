@@ -10,7 +10,7 @@
   "MSTR|short": 1793307658292,
   "OKB|short": 1793307658292,
   "SOL|short": 1793348871953,
-  "TRUMP|short": 1793296935678,
+  "UNI|long": 1793469907668,
   "WET|short": 1793447298728
  },
  "journal": [
@@ -325,16 +325,24 @@
    "sl": 0.05301,
    "status": "nofill",
    "tp1": 0.05593
+  },
+  {
+   "coin": "UNI",
+   "entry": 7.049,
+   "mode": "limit",
+   "resolved_ms": 0,
+   "rr": 2.168,
+   "score": 7,
+   "sent_ms": 1793469907668,
+   "side": "long",
+   "sl": 6.9849000000000006,
+   "status": "open",
+   "tp1": 7.188
   }
  ],
  "last_digest_ms": 1793415824309,
  "last_error_ms": 0,
  "log": [
-  [
-   1793296935678,
-   "TRUMP|short",
-   9
-  ],
   [
    1793305094015,
    "AVAX|short",
@@ -389,6 +397,11 @@
    1793462301010,
    "APR|long",
    8
+  ],
+  [
+   1793469907668,
+   "UNI|long",
+   7
   ]
  ],
  "pause_notified_ms": 1793415824309
