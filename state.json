@@ -4,7 +4,7 @@
   "CAP|short": 1793438816212,
   "GOOGL|short": 1793371235606,
   "HBAR|short": 1793371235606,
-  "INIT|long": 1793351837957,
+  "PEPE|long": 1793525717250,
   "RSR|long": 1793505726106,
   "UNI|long": 1793469907668,
   "WET|short": 1793447298728
@@ -347,16 +347,24 @@
    "sl": 0.0015083285714285715,
    "status": "nofill",
    "tp1": 0.001582
+  },
+  {
+   "coin": "PEPE",
+   "entry": 4.9751e-06,
+   "mode": "market",
+   "resolved_ms": 0,
+   "rr": 1.553,
+   "score": 11,
+   "sent_ms": 1793525717250,
+   "side": "long",
+   "sl": 4.930101428571429e-06,
+   "status": "open",
+   "tp1": 5.045e-06
   }
  ],
  "last_digest_ms": 1793502898472,
  "last_error_ms": 0,
  "log": [
-  [
-   1793351837957,
-   "INIT|long",
-   9
-  ],
   [
    1793371235606,
    "HBAR|short",
@@ -391,6 +399,11 @@
    1793505726106,
    "RSR|long",
    8
+  ],
+  [
+   1793525717250,
+   "PEPE|long",
+   11
   ]
  ],
  "pause_notified_ms": 1793415824309
