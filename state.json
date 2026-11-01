@@ -366,13 +366,13 @@
    "coin": "XPL",
    "entry": 0.07362,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793541969490,
    "rr": 1.728,
    "score": 7,
    "sent_ms": 1793534222187,
    "side": "short",
    "sl": 0.07536742857142857,
-   "status": "open",
+   "status": "loss",
    "tp1": 0.0706
   }
  ],
@@ -425,5 +425,5 @@
    7
   ]
  ],
- "pause_notified_ms": 1793415824309
+ "pause_notified_ms": 1793541969490
 }
