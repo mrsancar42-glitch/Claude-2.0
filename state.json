@@ -352,13 +352,13 @@
    "coin": "PEPE",
    "entry": 4.9751e-06,
    "mode": "market",
-   "resolved_ms": 0,
+   "resolved_ms": 1793530396898,
    "rr": 1.553,
    "score": 11,
    "sent_ms": 1793525717250,
    "side": "long",
    "sl": 4.930101428571429e-06,
-   "status": "open",
+   "status": "loss",
    "tp1": 5.045e-06
   }
  ],
