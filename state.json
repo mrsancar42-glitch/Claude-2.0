@@ -7,7 +7,8 @@
   "PEPE|long": 1793525717250,
   "RSR|long": 1793505726106,
   "UNI|long": 1793469907668,
-  "WET|short": 1793447298728
+  "WET|short": 1793447298728,
+  "XPL|short": 1793534222187
  },
  "journal": [
   {
@@ -360,6 +361,19 @@
    "sl": 4.930101428571429e-06,
    "status": "loss",
    "tp1": 5.045e-06
+  },
+  {
+   "coin": "XPL",
+   "entry": 0.07362,
+   "mode": "limit",
+   "resolved_ms": 0,
+   "rr": 1.728,
+   "score": 7,
+   "sent_ms": 1793534222187,
+   "side": "short",
+   "sl": 0.07536742857142857,
+   "status": "open",
+   "tp1": 0.0706
   }
  ],
  "last_digest_ms": 1793502898472,
@@ -404,6 +418,11 @@
    1793525717250,
    "PEPE|long",
    11
+  ],
+  [
+   1793534222187,
+   "XPL|short",
+   7
   ]
  ],
  "pause_notified_ms": 1793415824309
