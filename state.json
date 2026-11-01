@@ -340,13 +340,13 @@
    "coin": "RSR",
    "entry": 0.0015321,
    "mode": "limit",
-   "resolved_ms": 0,
+   "resolved_ms": 1793511118286,
    "rr": 2.099,
    "score": 8,
    "sent_ms": 1793505726106,
    "side": "long",
    "sl": 0.0015083285714285715,
-   "status": "open",
+   "status": "nofill",
    "tp1": 0.001582
   }
  ],
