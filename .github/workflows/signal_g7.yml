@@ -1,0 +1,79 @@
+name: Signal G7
+
+on:
+  # БОЕВОЙ режим: каждые 4 часа через 5 минут после закрытия 4H-свечи (UTC)
+  schedule:
+    - cron: "5 0,4,8,12,16,20 * * *"
+
+  # РУЧНОЙ запуск (кнопка Run workflow во вкладке Actions)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry = тест (всё в Telegram, позиции не пишутся) · backtest = бэктест в Telegram · run = боевой вручную"
+        type: choice
+        options: [dry, backtest, run]
+        default: dry
+      bt_days:
+        description: "Бэктест: сколько дней истории"
+        default: "900"
+      bt_top:
+        description: "Бэктест: сколько самых ликвидных монет"
+        default: "40"
+
+permissions:
+  contents: write        # чтобы сохранять signal_g7_state.json в репозиторий
+
+concurrency:
+  group: signal-g7       # два запуска одновременно не пересекаются
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Run signal_g7
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODE_IN: ${{ github.event.inputs.mode }}
+          BT_DAYS: ${{ github.event.inputs.bt_days || '900' }}
+          BT_TOP: ${{ github.event.inputs.bt_top || '40' }}
+          # ---- параметры стратегии (меняйте здесь) ----
+          MODE: "hybrid"            # trend | ict | hybrid
+          EQUITY_USDT: "1000"
+          RISK_PCT: "1.0"
+          MAX_LEVERAGE: "3"
+          MAX_OPEN: "4"
+          MAX_NEW_PER_RUN: "2"
+          TOP_N: "0"                # 0 = все монеты
+          MIN_TURNOVER_USDT: "20000000"
+          ALLOW_SHORT: "0"          # 1 = разрешить шорты при медвежьем BTC
+          REQUIRE_BYBIT: "1"        # слать сигнал только если монета есть на Bybit
+          BYBIT_ON_ERROR: "send"    # send = слать с пометкой, если Bybit недоступен; skip = не слать
+        run: |
+          case "$MODE_IN" in
+            dry)      python signal_g7.py --dry ;;
+            backtest) python signal_g7.py --backtest --dry ;;
+            *)        python signal_g7.py ;;      # расписание и режим run = БОЕВОЙ запуск
+          esac
+
+      - name: Save state
+        if: github.event_name == 'schedule' || github.event.inputs.mode == 'run'
+        run: |
+          if [ -f signal_g7_state.json ] && [ -n "$(git status --porcelain signal_g7_state.json)" ]; then
+            git config user.name  "signal-bot"
+            git config user.email "signal-bot@users.noreply.github.com"
+            git add signal_g7_state.json
+            git commit -m "state: signal_g7 [skip ci]"
+            git pull --rebase
+            git push
+          fi
