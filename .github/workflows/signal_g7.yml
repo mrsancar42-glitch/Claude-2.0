@@ -8,7 +8,7 @@ on:
   # РУЧНОЙ запуск (кнопка Run workflow во вкладке Actions)
   workflow_dispatch:
     inputs:
-      mode:
+      mode: "trend"
         description: "dry = тест (всё в Telegram, позиции не пишутся) · backtest = бэктест в Telegram · run = боевой вручную"
         type: choice
         options: [dry, backtest, run]
