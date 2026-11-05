@@ -1,0 +1,97 @@
+name: Trend Bot
+
+on:
+  # Боевой режим: каждый час через 5 минут после закрытия 1H-свечи (UTC)
+  schedule:
+    - cron: "5 * * * *"
+
+  # Ручной запуск: вкладка Actions -> Trend Bot -> Run workflow
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry = тест, run = боевой, backtest = бэктест"
+        type: choice
+        options:
+          - dry
+          - run
+          - backtest
+        default: dry
+      bt_days:
+        description: "Бэктест: дней истории"
+        default: "400"
+      bt_top:
+        description: "Бэктест: сколько самых ликвидных монет"
+        default: "40"
+
+permissions:
+  contents: write        # чтобы сохранять trend_bot_state.json в репозиторий
+
+concurrency:
+  group: trend-bot      # два запуска одновременно не пересекаются
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run trend_bot
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODE_IN: ${{ github.event.inputs.mode }}
+          BT_DAYS: ${{ github.event.inputs.bt_days || '400' }}
+          BT_TOP: ${{ github.event.inputs.bt_top || '40' }}
+          # ---- параметры стратегии (меняйте здесь) ----
+          EQUITY_USDT: "1000"          # ваш счёт
+          RISK_PCT: "0.5"              # риск на сделку, % счёта
+          MAX_LEVERAGE: "3"
+          MAX_OPEN: "6"                # одновременных позиций
+          MAX_NEW_PER_RUN: "3"
+          MAX_PER_DAY: "5"             # не больше N сигналов за 24 часа
+          SYMBOL_COOLDOWN_DAYS: "2"
+          TOP_N: "0"                   # 0 = все монеты
+          MIN_TURNOVER_USDT: "5000000"
+          ALLOW_SHORT: "1"             # 1 = и лонг, и шорт
+          # ---- структурный сетап (слом структуры 4H в Discount/Premium) ----
+          STRUCT_ENABLED: "1"
+          STRUCT_RANGE: "72"           # диапазон зон, свечей 4H (72 = 12 дней)
+          STRUCT_MIN_RR: "2.0"         # мин. R до противоположного края диапазона
+          STRUCT_MAX_STOP_PCT: "8"
+          # ---- биржи ----
+          DATA_SOURCES: "okx,bingx"    # откуда брать свечи (по порядку)
+          REQUIRE_BINGX: "1"           # слать сигнал только по монетам, которые есть на BingX
+          BINGX_ON_ERROR: "send"       # если список BingX не загрузился: send | skip
+          DAILY_SUMMARY: "1"           # раз в день короткий отчёт о скане
+          # ---- тихий режим (по времени Москвы): в эти часы бот молчит ----
+          QUIET_START: "23"
+          QUIET_END: "6"
+          QUIET_TZ: "Europe/Moscow"
+        run: |
+          case "$MODE_IN" in
+            dry)      python trend_bot.py --dry ;;
+            backtest) python trend_bot.py --backtest --dry ;;
+            run)      python trend_bot.py --no-quiet ;;   # ручной запуск — без тихого режима
+            *)        python trend_bot.py ;;              # по расписанию — тихий режим действует
+          esac
+
+      - name: Save state
+        if: github.event_name == 'schedule' || github.event.inputs.mode == 'run'
+        run: |
+          if [ -f trend_bot_state.json ] && [ -n "$(git status --porcelain trend_bot_state.json)" ]; then
+            git config user.name  "signal-bot"
+            git config user.email "signal-bot@users.noreply.github.com"
+            git add trend_bot_state.json
+            git commit -m "state: trend_bot [skip ci]"
+            git pull --rebase --autostash
+            git push
+          fi
