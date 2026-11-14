@@ -104,38 +104,6 @@
       "realized_r": 0.7500000000000001,
       "remaining": 0.5
     },
-    "TRX": {
-      "kind": "pullback",
-      "side": "short",
-      "entry": 0.31723,
-      "stop": 0.3235746,
-      "stop0": 0.3235746,
-      "tp1": 0.3077131,
-      "tp2": 0.30136850000000004,
-      "risk": 0.006344600000000001,
-      "atr": 0.00148589087415495,
-      "opened_ts": 1794373085453,
-      "last_ts": 1794632280000,
-      "status": "open",
-      "setup": "Откат к EMA20 в тренде (4H)",
-      "risk_usdt": 5.0,
-      "extreme": 0.31007,
-      "score": 66.0,
-      "ex": "bingx",
-      "dscale": 1,
-      "mult": 1.0,
-      "syms": {
-        "okx": {
-          "sym": "TRX-USDT-SWAP",
-          "scale": 1
-        },
-        "bingx": {
-          "sym": "TRX-USDT",
-          "scale": 1
-        }
-      },
-      "last_px": 0.31172
-    },
     "CAP": {
       "kind": "pullback",
       "side": "long",
@@ -603,6 +571,16 @@
       "reason": "стоп",
       "opened_ts": 1794514655428,
       "closed_ts": 1794628831076
+    },
+    {
+      "inst": "TRX",
+      "side": "short",
+      "setup": "Откат к EMA20 в тренде (4H)",
+      "src": "pullback",
+      "r": 0.87,
+      "reason": "срок идеи истёк (3 дн.)",
+      "opened_ts": 1794373085453,
+      "closed_ts": 1794632312480
     }
   ],
   "cooldown": {},
